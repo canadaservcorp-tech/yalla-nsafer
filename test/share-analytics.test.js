@@ -46,12 +46,13 @@ test('the analytics origins the policy opens are all https', async () => {
   }
 });
 
-test('the share bar offers every channel and reports each one', async () => {
+test('the share bar offers Facebook, Telegram and copy (no WhatsApp) and reports each one', async () => {
   const body = await home();
-  for (const id of ['shareWhatsapp', 'shareFacebook', 'shareTelegram', 'shareCopy']) {
+  for (const id of ['shareFacebook', 'shareTelegram', 'shareCopy']) {
     assert.ok(body.includes(`id="${id}"`), id);
   }
-  assert.match(SHELL, /wa\.me\/\?text=/);
+  assert.ok(!body.includes('id="shareWhatsapp"'));
+  assert.doesNotMatch(SHELL, /wa\.me/);
   assert.match(SHELL, /facebook\.com\/sharer\/sharer\.php\?u=/);
   assert.match(SHELL, /t\.me\/share\/url\?url=/);
   assert.match(SHELL, /track\('share', \{ method: 'copy'/);
