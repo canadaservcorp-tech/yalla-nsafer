@@ -470,7 +470,6 @@
         <div id="shareBar" class="menuSection">
           <span class="lbl" data-i18n="shareHeading">Know someone looking? Share Yalla Nsafer</span>
           <div class="row">
-            <a id="shareWhatsapp" href="#" target="_blank" rel="noopener">WhatsApp</a>
             <a id="shareFacebook" href="#" target="_blank" rel="noopener">Facebook</a>
             <a id="shareTelegram" href="#" target="_blank" rel="noopener">Telegram</a>
             <button id="shareCopy" class="ghost" data-i18n="shareCopy">Copy link</button>
@@ -665,7 +664,6 @@
       <h2 data-i18n="referralHeading">Invite a friend</h2>
       <p class="hint" data-i18n="referralHint">Share your personal link. When someone signs up and subscribes, it shows up here.</p>
       <div class="row">
-        <a id="referralWhatsapp" href="#" target="_blank" rel="noopener">WhatsApp</a>
         <a id="referralFacebook" href="#" target="_blank" rel="noopener">Facebook</a>
         <a id="referralTelegram" href="#" target="_blank" rel="noopener">Telegram</a>
         <button id="referralCopy" class="ghost" data-i18n="shareCopy">Copy link</button>
@@ -1485,7 +1483,6 @@
       const url = location.origin + '/?ref=' + encodeURIComponent(d.code);
       const text = t('shareText');
       const links = {
-        referralWhatsapp: 'https://wa.me/?text=' + encodeURIComponent(text + ' ' + url),
         referralFacebook: 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url),
         referralTelegram: 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text),
       };
@@ -2165,7 +2162,6 @@
     const url = location.origin + '/';
     const text = t('shareText');
     const links = {
-      shareWhatsapp: 'https://wa.me/?text=' + encodeURIComponent(text + ' ' + url),
       shareFacebook: 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url),
       shareTelegram: 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text),
     };
