@@ -9,7 +9,7 @@
 <script src="/i18n.js"></script>
 <style>
   :root {
-    /* Warm sand + eucalyptus palette (Hicham's ask, Sept 2026: the dark
+    /* Warm sand + eucalyptus palette (the owner's ask, Sept 2026: the dark
        night-blue read as cold and unwelcoming for a travel product — cream
        paper, warm ink, and a green accent in the same family as the green
        Send it leads toward). --accent-contrast is the readable text color
@@ -32,7 +32,7 @@
            display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
   header h1 { font-size: 16px; margin: 0; font-weight: 600; }
   header .subtitle { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
-  /* Hicham's ask: the three verticals (study/treatment/work+immigration),
+  /* the owner's ask: the three verticals (study/treatment/work+immigration),
      each Arabic phrase paired with its English translation, shown after the
      "Yalla Nsafer" title on every page load -- same always-on, non-i18n-toggled
      treatment as .subtitle above (that line already mixes English/Arabic/French
@@ -59,7 +59,7 @@
   main { flex: 1; min-height: 0; display: flex; overflow: hidden; }
   #chatPane { flex: 2; display: flex; flex-direction: column; border-right: 1px solid var(--border); min-width: 0; }
   /* Hidden until the "..." menu opens -- on EVERY viewport now, not just
-     phones (Hicham's cleanup ask: the signed-in screen should be just the
+     phones (the owner's cleanup ask: the signed-in screen should be just the
      chat and the composer; matched jobs / CV / medical intake / security /
      notifications / invite all live behind the same toggle). The class is
      flipped on <body> because #jobsPane lives in #appMain, a different
@@ -97,7 +97,7 @@
   #inputRow input { flex: 1; min-width: 0; font-size: 14px; padding: 10px 12px; }
   [dir="rtl"] .msg.user { align-self: flex-start; border-bottom-left-radius: 4px; border-bottom-right-radius: 12px; }
   [dir="rtl"] .msg.bot { align-self: flex-end; border-bottom-right-radius: 4px; border-bottom-left-radius: 12px; }
-  /* Hicham's ask: a flight/travel cue somewhere in the background, subtle
+  /* the owner's ask: a flight/travel cue somewhere in the background, subtle
      enough to stay calm rather than busy -- placed behind the sign-in card,
      the one screen every visitor sees before anything else. A single inline
      SVG (Material Design's "flight" glyph) painted in the accent blue at
@@ -135,7 +135,7 @@
     body.hasPartners .sideSlot.right { display: none; }
   }
   /* "Why Yalla Nsafer" lives INSIDE the "..." menu, not on the landing —
-     Hicham's call: the interface stays clean, and the pitch is one tap
+     the owner's call: the interface stays clean, and the pitch is one tap
      away for anyone curious. */
   #whySection ul { margin: 0; padding-inline-start: 16px; display: flex; flex-direction: column; gap: 4px;
                    font-size: 12px; color: var(--text-dim); }
@@ -186,7 +186,7 @@
   #googleBox .orLine::before, #googleBox .orLine::after { content: ''; flex: 1; height: 1px; background: var(--border); }
   /* Was #postListingAside; the contact/promote/social/guides cluster now
      folds behind a single "..." toggle (closed by default). Third pass
-     (Sept 2026): Hicham's ask is the menu belongs at the TOP of the screen,
+     (Sept 2026): the owner's ask is the menu belongs at the TOP of the screen,
      in the same green as Send, with its contents reading as one tidy list.
      #ctaAside lives inside the header's .controls as its last item -- the
      logical inline end (top right in LTR, mirrored top left in RTL, same
@@ -277,7 +277,7 @@
   #cookiebar p { margin: 0; flex: 1 1 240px; }
   #cookiebar button { font-size: 12px; padding: 6px 12px; }
   /* Side strips flanking the page: airplane glyphs for now — these are
-     the reserved slots for media/announcements later (Hicham's ask).
+     the reserved slots for media/announcements later (the owner's ask).
      Desktop-only; on phones there is no free margin for them. */
   .sideSlot { display: none; position: fixed; top: 50%; z-index: 0;
               color: var(--accent); opacity: .5; pointer-events: none; }
@@ -406,7 +406,7 @@
       <button id="ctaAsideToggle" aria-expanded="false" aria-controls="ctaAsideBody jobsPane"
               data-i18n-title="moreMenuTitle" title="More" aria-label="More"><span data-i18n="menuLabel">Menu</span></button>
       <div id="ctaAsideBody">
-        <!-- Account row lives in the menu, not the header (Hicham's cleanup
+        <!-- Account row lives in the menu, not the header (the owner's cleanup
              ask): subscription status, cancel/resume, sign out. Hidden
              entirely until enter() shows it -- a signed-out visitor has no
              account actions, so the section doesn't render an empty box. -->
@@ -523,7 +523,7 @@
            gets degree-level/field-of-study questions, and someone needing
            medical treatment abroad gets a required-treatment question
            instead (immigration is NOT its own track -- it's already part
-           of the job_seeker/work track, Hicham's call). Toggling only
+           of the job_seeker/work track, the owner's call). Toggling only
            swaps which of #jobSeekerFields/#studentFields/#treatmentFields
            is visible; nothing here is mutually exclusive server-side. -->
       <label data-i18n="labelAccountType">I am signing up as a...</label>
@@ -695,7 +695,7 @@
   const srcParam = (new URLSearchParams(location.search).get('src') || '').trim();
   let history = [], conversationId = null;
 
-  // Hicham's ask: closing the app (or the browser) and reopening it must not
+  // the owner's ask: closing the app (or the browser) and reopening it must not
   // look like the chat was lost. The chat data itself was already durable
   // server-side (resumeConversation() below), but the LOGIN was not: sessionStorage
   // clears the moment the tab/browser closes, so reopening always landed back
@@ -1220,7 +1220,7 @@
   // signed in or not, since the route itself takes no token and must be
   // reachable either way.
   // (The "post an urgent listing" form that used to share this panel was
-  // removed from the page per Hicham's ask, Sept 2026 -- 3 stacked buttons
+  // removed from the page per the owner's ask, Sept 2026 -- 3 stacked buttons
   // read as cluttered on a phone. routes/informal-listings.js and the admin
   // moderation console are untouched; test/informal-listings.test.js still
   // covers the route directly. Only the page-level entry point is gone.)
@@ -1260,7 +1260,7 @@
     } finally { $('contactSubmit').disabled = false; }
   };
 
-  // Hicham's explicit ask: closing and reopening the app while subscribed
+  // the owner's explicit ask: closing and reopening the app while subscribed
   // (or even mid-free-preview) must not look like the conversation was
   // lost -- every turn is already durably logged server-side (GET
   // /api/concierge/history), this just rehydrates the chat UI and the
