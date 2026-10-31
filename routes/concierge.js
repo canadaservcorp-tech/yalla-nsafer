@@ -21,6 +21,7 @@ const { retrieveMedicalIntake, retrieveMedicalProviders } = require('../lib/yf/m
 const flightSearch = require('../lib/flightSearch');
 const hotelSearch = require('../lib/hotelSearch');
 const { buildSystemPrompt } = require('../lib/yf/systemPrompt');
+const { buildSearchPlan, conversationText } = require('../lib/yf/searchPlan');
 const { computeCompleteness } = require('../lib/profileCompleteness');
 const { applyIntake } = require('../lib/profileWrite');
 const router = express.Router();
@@ -666,21 +667,26 @@ router.post('/', sec.limits.concierge, authenticate, sec.requireActiveUser, asyn
     // overlap rather than a fallback sample, so unrelated messages never see
     // provider noise. preferredCountry is a soft ordering nudge there, never
     // a filter (see retrieveMedicalProviders' own comment on why).
+    // Retrieval reads the recent conversation, not just this message, so a
+    // follow-up like "go ahead" or "in Turkey" keeps the earlier topic.
+    const plan = isComplete ? await buildSearchPlan({ history, message }) : { countries: [], keywords: [] };
+    const searchText = [conversationText(history, message), ...plan.keywords].join(' ');
+    const planCountry = plan.countries.length === 1 ? plan.countries[0] : '';
     const [jobs, studyOpportunities, communityGroups, accommodationListings, trustedPartners, countryRisks, costOfLiving, medicalProviders] = isComplete
       ? await Promise.all([
-          retrieveJobs({ query: message, preferredCountry, limit: 5 }),
+          plan.topic === 'travel' || plan.topic === 'medical' ? [] : retrieveJobs({ query: message, preferredCountry, limit: 5, countries: plan.countries, keywords: plan.keywords }),
           retrieveStudyOpportunities({
-            query: message, preferredCountry,
+            query: searchText, preferredCountry: planCountry || preferredCountry,
             degreeLevel: profileRow?.target_degree_level, fieldOfStudy: profileRow?.target_field_of_study, limit: 5,
           }),
-          retrieveCommunityGroups({ country: preferredCountry, city: preferredCity, limit: 5 }),
-          retrieveAccommodationListings({ country: preferredCountry, city: preferredCity, limit: 5 }),
-          retrieveTrustedPartners({ country: preferredCountry, limit: 3 }),
-          retrieveCountryRisks({ country: preferredCountry, limit: 5 }),
-          retrieveCostOfLiving({ country: preferredCountry, city: preferredCity, limit: 5 }),
+          retrieveCommunityGroups({ country: planCountry || preferredCountry, city: planCountry ? '' : preferredCity, limit: 5 }),
+          retrieveAccommodationListings({ country: planCountry || preferredCountry, city: planCountry ? '' : preferredCity, limit: 5 }),
+          retrieveTrustedPartners({ country: planCountry || preferredCountry, limit: 3 }),
+          retrieveCountryRisks({ country: planCountry || preferredCountry, limit: 5 }),
+          retrieveCostOfLiving({ country: planCountry || preferredCountry, city: planCountry ? '' : preferredCity, limit: 5 }),
           medicalIntake
             ? retrieveMedicalProviders({ query: [medicalIntake.requiredTreatment, medicalIntake.extractedReportText].filter(Boolean).join(' '), preferredCountry, limit: 8 })
-            : retrieveMedicalProviders({ query: message, preferredCountry, limit: 8 }),
+            : retrieveMedicalProviders({ query: searchText, preferredCountry: planCountry || preferredCountry, limit: 8 }),
         ])
       : [[], [], [], [], [], [], [], []];
     // Seed/demo fixture rows (see demoJob above) are redacted before either
