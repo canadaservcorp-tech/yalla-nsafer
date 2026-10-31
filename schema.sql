@@ -893,3 +893,11 @@ grant execute on function public.rate_hits_gc() to service_role;
 grant execute on function public.record_login_result(bigint, boolean, integer, integer) to service_role;
 grant execute on function public.record_referral_conversion(bigint, bigint, integer) to service_role;
 grant execute on function public.usage_charge(bigint, numeric) to service_role;
+
+-- One row per month the official-source check (lib/sourceCheck.js) ran: the
+-- primary key makes the claim atomic, so a redeploy never sends a second report.
+create table if not exists public.source_check_runs (
+  month text primary key,
+  ran_at timestamptz not null default now()
+);
+alter table public.source_check_runs enable row level security;
