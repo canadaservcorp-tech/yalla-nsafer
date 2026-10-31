@@ -44,3 +44,14 @@ test('the report is sent once per month and never writes to the entries', async 
   assert.match(sent[0], /2026-11: 1 to fix/);
   assert.deepEqual(writes, []);
 });
+
+test('a captcha / bot-check page is unchecked, not a missing price', async () => {
+  const wall = '<html><head><meta http-equiv="refresh" content="0;/.well-known/sgcaptcha/?r=%2Ffees%2F"></head></html>';
+  const pages = { 'https://e.test/': page(202, wall), 'https://f.test/': page(200, wall) };
+  const r = await sc.checkItems([
+    { kind: 'Clinic', name: 'E', url: 'https://e.test/', priceNote: 'THB 79,000' },
+    { kind: 'Clinic', name: 'F', url: 'https://f.test/', priceNote: 'THB 79,000' },
+  ], url => pages[url]());
+  assert.deepEqual(r.priceGone, []);
+  assert.deepEqual(r.unchecked.map(x => x.name), ['E', 'F']);
+});

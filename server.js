@@ -24,7 +24,7 @@ if (process.env.JWT_SECRET.length < 32) { console.error('FATAL: JWT_SECRET must 
 
 const app = express();
 app.disable('x-powered-by');
-app.set('trust proxy', 1);          // Railway terminates TLS in front of us
+app.set('trust proxy', 2);          // Railway: edge proxy + internal proxy; req.ip must be the visitor, not the edge
 app.use(sec.forceHttps);
 app.use(sec.nonce);                 // must run before sec.headers — the CSP below reads res.locals.cspNonce
 app.use(sec.headers);
