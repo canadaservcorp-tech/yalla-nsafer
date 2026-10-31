@@ -10,7 +10,7 @@ const { authenticate } = require('../lib/auth-mw');
 const sec = require('../lib/security');
 const usage = require('../lib/usage');
 const access = require('../lib/access');
-const { retrieveJobs } = require('../lib/yf/matching');
+const { retrieveJobsWithStats } = require('../lib/yf/matching');
 const { retrieveStudyOpportunities } = require('../lib/yf/studyMatching');
 const { retrieveCommunityGroups } = require('../lib/yf/communityMatching');
 const { retrieveAccommodationListings } = require('../lib/yf/accommodationMatching');
@@ -672,9 +672,13 @@ router.post('/', sec.limits.concierge, authenticate, sec.requireActiveUser, asyn
     const plan = isComplete ? await buildSearchPlan({ history, message }) : { countries: [], keywords: [] };
     const searchText = [conversationText(history, message), ...plan.keywords].join(' ');
     const planCountry = plan.countries.length === 1 ? plan.countries[0] : '';
-    const [jobs, studyOpportunities, communityGroups, accommodationListings, trustedPartners, countryRisks, costOfLiving, medicalProviders] = isComplete
+    const flightQuery = isComplete && plan.flight && flightSearch.configured() ? plan.flight : null;
+    const flightsPromise = flightQuery
+      ? flightSearch.searchCheapest({ origin: flightQuery.origin, destination: flightQuery.destination, dateRange: flightQuery.month }).catch(() => ({ estimates: [] }))
+      : Promise.resolve({ estimates: [] });
+    const [jobResult, studyOpportunities, communityGroups, accommodationListings, trustedPartners, countryRisks, costOfLiving, medicalProviders] = isComplete
       ? await Promise.all([
-          plan.topic === 'travel' || plan.topic === 'medical' ? [] : retrieveJobs({ query: message, preferredCountry, limit: 5, countries: plan.countries, keywords: plan.keywords }),
+          plan.topic === 'travel' || plan.topic === 'medical' ? { jobs: [], salaryStats: [] } : retrieveJobsWithStats({ query: message, preferredCountry, limit: 5, countries: plan.countries, keywords: plan.keywords }),
           retrieveStudyOpportunities({
             query: searchText, preferredCountry: planCountry || preferredCountry,
             degreeLevel: profileRow?.target_degree_level, fieldOfStudy: profileRow?.target_field_of_study, limit: 5,
@@ -688,7 +692,8 @@ router.post('/', sec.limits.concierge, authenticate, sec.requireActiveUser, asyn
             ? retrieveMedicalProviders({ query: [medicalIntake.requiredTreatment, medicalIntake.extractedReportText].filter(Boolean).join(' '), preferredCountry, limit: 8 })
             : retrieveMedicalProviders({ query: searchText, preferredCountry: planCountry || preferredCountry, limit: 8 }),
         ])
-      : [[], [], [], [], [], [], [], []];
+      : [{ jobs: [], salaryStats: [] }, [], [], [], [], [], [], []];
+    const { jobs, salaryStats } = jobResult;
     // Seed/demo fixture rows (see demoJob above) are redacted before either
     // the model or the client sees them, regardless of preview/subscription
     // status — applied first so a demo job during free preview still gets
@@ -767,10 +772,10 @@ router.post('/', sec.limits.concierge, authenticate, sec.requireActiveUser, asyn
 
     const context = profileContext({ profile: profileRow, seekerProfile });
     const system = buildSystemPrompt({
-      jobs: outJobs, dialectHint: sec.clean(req.body.dialectHint, 40),
+      jobs: outJobs, salaryStats, dialectHint: sec.clean(req.body.dialectHint, 40),
       studyOpportunities, communityGroups, accommodationListings, trustedPartners, countryRisks, costOfLiving,
       medicalIntake, medicalProviders, uploadedDocuments,
-      travel: { flightsConfigured: flightSearch.configured(), hotelsConfigured: hotelSearch.configured() },
+      travel: { flightsConfigured: flightSearch.configured(), hotelsConfigured: hotelSearch.configured(), flightQuery, flights: (await flightsPromise).estimates },
     })
       + (context ? '\n\n' + context : '')
       + (isComplete ? '' : '\n\n' + intakeInstructions(missing))

@@ -388,6 +388,10 @@ create table if not exists public.jobs (
 create index if not exists jobs_track_idx on public.jobs(track);
 create index if not exists jobs_country_idx on public.jobs(country);
 create index if not exists jobs_status_idx on public.jobs(status);
+-- concierge retrieval (lib/yf/matching.js loadJobs): country + freshest-first, and title ilike
+create extension if not exists pg_trgm with schema extensions;
+create index if not exists jobs_active_country_posted_idx on public.jobs (country, posted_at desc nulls last) where status = 'active';
+create index if not exists jobs_active_title_trgm_idx on public.jobs using gin (title extensions.gin_trgm_ops) where status = 'active';
 
 -- Public "contact us" submissions. Persisted rather than only emailed: the
 -- notification email is a third-party call that can fail, and a visitor's

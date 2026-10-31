@@ -180,3 +180,28 @@ test('retrieveJobs() returns an empty list when there are no candidate jobs at a
   const results = await retrieveJobs({ query: 'cook', limit: 5 });
   assert.deepEqual(results, []);
 });
+
+// ---------- salaryStats() ----------
+
+test('parseYearlySalary() reads Adzuna "min–max" notes and rejects free text or implausible values', () => {
+  const { parseYearlySalary } = require('../lib/yf/matching');
+  assert.equal(parseYearlySalary('30000–40000'), 35000);
+  assert.equal(parseYearlySalary('49967.88–49967.88'), 49967.88);
+  assert.equal(parseYearlySalary('£12/hour'), null);
+  assert.equal(parseYearlySalary('12–14'), null);
+  assert.equal(parseYearlySalary(''), null);
+});
+
+test('salaryStats() gives a per-country median only for the seeker\'s field and only with enough postings', () => {
+  const { salaryStats } = require('../lib/yf/matching');
+  const mk = (title, country, note) => ({ title, country, salaryNote: note });
+  const jobs = [
+    ...[30000, 32000, 34000, 36000, 38000].map(v => mk('HGV Driver', 'United Kingdom', `${v}–${v}`)),
+    mk('Accountant', 'United Kingdom', '90000–90000'),
+    ...[1, 2, 3].map(() => mk('Driver', 'Germany', '30000–30000')),
+  ];
+  const stats = salaryStats(jobs, ['driver']);
+  assert.equal(stats.length, 1, 'Germany has too few samples');
+  assert.deepEqual(stats[0], { country: 'United Kingdom', currency: 'GBP', samples: 5, median: 34000, low: 32000, high: 36000 });
+  assert.deepEqual(salaryStats(jobs, []), [], 'no field, no statistics');
+});
