@@ -1721,6 +1721,28 @@
     return html;
   }
 
+  // 👍/👎 under an answer: one click, then a thank-you; nothing else changes.
+  function addFeedback(el, question, answer) {
+    if (!el || el.querySelector('.fbRow')) return;
+    const row = document.createElement('div');
+    row.className = 'fbRow';
+    row.style.cssText = 'margin-top:6px;display:flex;gap:6px;align-items:center;font-size:12px;color:var(--text-dim)';
+    [[1, '\u{1F44D}', t('feedbackHelpful')], [-1, '\u{1F44E}', t('feedbackNotHelpful')]].forEach(([rating, icon, label]) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = icon; b.title = label; b.setAttribute('aria-label', label);
+      b.style.cssText = 'background:none;border:1px solid var(--border, #ddd);border-radius:8px;padding:2px 8px;cursor:pointer;font-size:14px;width:auto';
+      b.addEventListener('click', () => {
+        const headers = { 'Content-Type': 'application/json' };
+        const tk = typeof token === 'function' ? token() : '';
+        if (tk) headers.Authorization = 'Bearer ' + tk;
+        fetch('/api/concierge/feedback', { method: 'POST', headers, body: JSON.stringify({ rating, question, answer, lang: document.documentElement.lang || '' }) }).catch(() => {});
+        row.textContent = t('feedbackThanks');
+      });
+      row.appendChild(b);
+    });
+    el.appendChild(row);
+  }
+
   function addMessage(role, text) {
     const div = document.createElement('div');
     div.className = 'msg ' + role;
@@ -1874,7 +1896,9 @@
     // of appending a second one.
     const finishConcierge = (data, botEl) => {
       conversationId = data.conversationId || conversationId;
-      if (botEl) botEl.innerHTML = renderMarkdown(data.reply); else addMessage('bot', data.reply);
+      const lastQ = (history.filter(m => m.role === 'user').slice(-1)[0] || {}).content || '';
+      if (botEl) botEl.innerHTML = renderMarkdown(data.reply); else botEl = addMessage('bot', data.reply);
+      addFeedback(botEl, lastQ, data.reply);
       addSuggestions(data.suggest);
       history.push({ role: 'assistant', content: data.reply });
       renderJobs(data.jobs, data.jobsRetrieved, data.isComplete);
@@ -2207,6 +2231,7 @@
     d.style.cssText = 'margin:6px 0;padding:8px 10px;border-radius:10px;overflow-wrap:anywhere;' + (who === 'user' ? 'white-space:pre-wrap;' : '') + (who === 'user' ? 'background:var(--accent-soft, #eef4ff);text-align:end' : 'background:var(--bg-soft, #f6f6f6)');
     if (who !== 'user' && typeof renderMarkdown === 'function') d.innerHTML = renderMarkdown(text); else d.textContent = text;
     log.appendChild(d); log.scrollTop = log.scrollHeight;
+    return d;
   };
   var done = function () {
     input.disabled = true; btn.disabled = true;
@@ -2221,7 +2246,7 @@
       .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
       .then(function (x) {
         if (!x.ok) { msg.textContent = (x.b && x.b.error) || 'Error'; if (/used up/.test(msg.textContent)) done(); return; }
-        line(x.b.reply || '', 'bot');
+        addFeedback(line(x.b.reply || '', 'bot'), q, x.b.reply || '');
         hist.push({ role: 'user', content: q }, { role: 'assistant', content: x.b.reply || '' });
         localStorage.setItem(KEY, String(used() + 1));
         var left = MAX - used();
