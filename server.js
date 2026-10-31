@@ -178,6 +178,25 @@ app.get('/medical-providers/:country', async (req, res) => {
   }));
 });
 
+// "Cheapest flights A → B" pages (lib/flightPages.js): recent Travelpayouts
+// fares with booking links; each route is in the sitemap via seo.js.
+const flightPages = require('./lib/flightPages');
+app.get('/flights', (req, res) => {
+  const asked = flightPages.LANGS.includes(req.query.lang) ? req.query.lang : null;
+  const lang = asked || geo.pickLang(req, flightPages.LANGS) || 'en';
+  res.set('Cache-Control', 'private, no-cache');
+  res.type('html').send(flightPages.renderIndexPage({ lang, cheapest: flightPages.cachedCheapest(), head: seo.head('/flights', lang, asked || 'en') }));
+});
+app.get('/flights/:route', async (req, res) => {
+  const route = flightPages.BY_SLUG[String(req.params.route || '').toLowerCase()];
+  if (!route) return res.redirect(302, '/flights');
+  const asked = flightPages.LANGS.includes(req.query.lang) ? req.query.lang : null;
+  const lang = asked || geo.pickLang(req, flightPages.LANGS) || 'en';
+  const fares = await flightPages.loadFares(route);
+  res.set('Cache-Control', asked ? 'public, max-age=1800' : 'private, no-cache');
+  res.type('html').send(flightPages.renderRoutePage({ route, fares, lang, head: seo.head(`/flights/${route.slug}`, lang, asked || 'en') }));
+});
+
 // A real, crawlable page (lib/expressEntryPage.js), not another view of the
 // SPA shell -- registered ahead of the catch-all below so it isn't swallowed
 // by it. No inline script at all, so no CSP nonce is needed here.
