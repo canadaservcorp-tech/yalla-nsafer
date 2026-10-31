@@ -6,7 +6,7 @@
 // subscription gate from Section 4.3.
 const express = require('express');
 const supabase = require('../db');
-const { authenticate } = require('../lib/auth-mw');
+const { authenticate, optionalAuth } = require('../lib/auth-mw');
 const sec = require('../lib/security');
 const usage = require('../lib/usage');
 const access = require('../lib/access');
@@ -502,6 +502,21 @@ function logTurn(conversationId, userText, reply, matchedIds, units) {
   ins({ conversation_id: conversationId, role: 'user', content: userText, units_charged: units });
   ins({ conversation_id: conversationId, role: 'assistant', content: reply, matched_job_ids: matchedIds });
 }
+
+// 👍/👎 on an answer, from members and free-trial visitors alike.
+router.post('/feedback', sec.limits.write, optionalAuth, async (req, res) => {
+  const rating = Number(req.body.rating);
+  if (rating !== 1 && rating !== -1) return res.status(400).json({ error: 'rating must be 1 or -1', code: 'ERR_BAD_INPUT' });
+  const { error } = await supabase.from('concierge_feedback').insert({
+    user_id: req.user && Number.isSafeInteger(req.user.id) ? req.user.id : null,
+    rating,
+    question: sec.clean(req.body.question, 2000) || null,
+    answer: sec.clean(req.body.answer, 6000) || null,
+    lang: sec.clean(req.body.lang, 10) || null,
+  });
+  if (error) { console.error('concierge feedback', error.message); return res.status(500).json({ error: 'Could not save', code: 'ERR_SERVER' }); }
+  res.json({ ok: true });
+});
 
 // Anonymous free trial: a visitor can ask a few questions before creating an
 // account. Same retrieval and prompt as a signed-in turn, but nothing is
