@@ -55,7 +55,7 @@ const caller = (sub = {}, seekerProfile = COMPLETE_SEEKER, profile = COMPLETE_PR
   return auth(actor(h, { id, role: 'seeker' }));
 };
 // The route is rate limited per address, so each call comes from its own visitor
-// (`app.set('trust proxy', 1)` makes X-Forwarded-For the client IP).
+// (`app.set('trust proxy', 2)` makes the second-to-last X-Forwarded-For hop the client IP).
 let visitor = 0;
 const ask = (body, hdrs) => fetch(h.base + '/api/concierge', {
   method: 'POST',
