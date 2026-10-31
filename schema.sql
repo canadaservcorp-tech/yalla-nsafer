@@ -907,3 +907,11 @@ create table if not exists public.concierge_feedback (
   created_at timestamptz not null default now()
 );
 alter table public.concierge_feedback enable row level security;
+
+-- One row per month the official-source check (lib/sourceCheck.js) ran: the
+-- primary key makes the claim atomic, so a redeploy never sends a second report.
+create table if not exists public.source_check_runs (
+  month text primary key,
+  ran_at timestamptz not null default now()
+);
+alter table public.source_check_runs enable row level security;
