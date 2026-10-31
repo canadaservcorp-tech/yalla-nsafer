@@ -585,6 +585,16 @@
     <div id="authMsg"></div>
     <button id="resendVerify" style="display:none;background:none;border:none;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:13px" data-i18n="resendVerifyLink">Resend verification email</button>
   </div>
+  <div id="trialCard" style="width:100%;max-width:420px;margin-top:14px;padding:14px 16px;border:1px solid var(--border, #ddd);border-radius:14px;background:var(--card, #fff)">
+    <div style="font-weight:700;margin-bottom:4px" data-i18n="trialTitle">Try the assistant — no account needed</div>
+    <div style="font-size:12.5px;color:var(--text-dim);margin-bottom:8px" data-i18n="trialHint">Ask about jobs, studies, treatment abroad, flights or tourism. 3 free questions.</div>
+    <div id="trialLog" style="font-size:14px;line-height:1.45;max-height:320px;overflow:auto"></div>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <input type="text" id="trialInput" maxlength="1500" style="flex:1" data-i18n-ph="trialPlaceholder" placeholder="e.g. cheapest flight Beirut to Istanbul">
+      <button id="trialSend" type="button" data-i18n="trialSend">Ask</button>
+    </div>
+    <div id="trialMsg" style="font-size:12.5px;color:var(--text-dim);margin-top:6px"></div>
+  </div>
 </div>
 
 <main id="appMain" style="display:none">
@@ -1711,6 +1721,28 @@
     return html;
   }
 
+  // 👍/👎 under an answer: one click, then a thank-you; nothing else changes.
+  function addFeedback(el, question, answer) {
+    if (!el || el.querySelector('.fbRow')) return;
+    const row = document.createElement('div');
+    row.className = 'fbRow';
+    row.style.cssText = 'margin-top:6px;display:flex;gap:6px;align-items:center;font-size:12px;color:var(--text-dim)';
+    [[1, '\u{1F44D}', t('feedbackHelpful')], [-1, '\u{1F44E}', t('feedbackNotHelpful')]].forEach(([rating, icon, label]) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = icon; b.title = label; b.setAttribute('aria-label', label);
+      b.style.cssText = 'background:none;border:1px solid var(--border, #ddd);border-radius:8px;padding:2px 8px;cursor:pointer;font-size:14px;width:auto';
+      b.addEventListener('click', () => {
+        const headers = { 'Content-Type': 'application/json' };
+        const tk = typeof token === 'function' ? token() : '';
+        if (tk) headers.Authorization = 'Bearer ' + tk;
+        fetch('/api/concierge/feedback', { method: 'POST', headers, body: JSON.stringify({ rating, question, answer, lang: document.documentElement.lang || '' }) }).catch(() => {});
+        row.textContent = t('feedbackThanks');
+      });
+      row.appendChild(b);
+    });
+    el.appendChild(row);
+  }
+
   function addMessage(role, text) {
     const div = document.createElement('div');
     div.className = 'msg ' + role;
@@ -1864,7 +1896,9 @@
     // of appending a second one.
     const finishConcierge = (data, botEl) => {
       conversationId = data.conversationId || conversationId;
-      if (botEl) botEl.innerHTML = renderMarkdown(data.reply); else addMessage('bot', data.reply);
+      const lastQ = (history.filter(m => m.role === 'user').slice(-1)[0] || {}).content || '';
+      if (botEl) botEl.innerHTML = renderMarkdown(data.reply); else botEl = addMessage('bot', data.reply);
+      addFeedback(botEl, lastQ, data.reply);
       addSuggestions(data.suggest);
       history.push({ role: 'assistant', content: data.reply });
       renderJobs(data.jobs, data.jobsRetrieved, data.isComplete);
@@ -2182,6 +2216,49 @@
   // Runs last: enter() touches messagesEl/dialectSelect, which aren't
   // initialized until the chat section above.
   if (token()) enter();
+
+// Free trial card on the sign-in screen (POST /api/concierge/try)
+(function () {
+  var MAX = 3, KEY = 'yn_trial_used', hist = [];
+  var log = document.getElementById('trialLog'), input = document.getElementById('trialInput'), btn = document.getElementById('trialSend'), msg = document.getElementById('trialMsg');
+  if (!log || !input || !btn) return;
+  var lang = function () { return (document.documentElement.lang || 'en').slice(0, 2); };
+  var tr = function (k, fb) { try { return (window.i18n && window.i18n.t(lang(), k)) || fb; } catch (e) { return fb; } };
+  var used = function () { return Number(localStorage.getItem(KEY) || 0); };
+  var line = function (text, who) {
+    var d = document.createElement('div');
+    d.dir = 'auto';
+    d.style.cssText = 'margin:6px 0;padding:8px 10px;border-radius:10px;overflow-wrap:anywhere;' + (who === 'user' ? 'white-space:pre-wrap;' : '') + (who === 'user' ? 'background:var(--accent-soft, #eef4ff);text-align:end' : 'background:var(--bg-soft, #f6f6f6)');
+    if (who !== 'user' && typeof renderMarkdown === 'function') d.innerHTML = renderMarkdown(text); else d.textContent = text;
+    log.appendChild(d); log.scrollTop = log.scrollHeight;
+    return d;
+  };
+  var done = function () {
+    input.disabled = true; btn.disabled = true;
+    msg.textContent = t('trialDone');
+  };
+  if (used() >= MAX) done();
+  var send = function () {
+    var q = input.value.trim();
+    if (!q || used() >= MAX) return;
+    input.value = ''; line(q, 'user'); btn.disabled = true; msg.textContent = '…';
+    fetch('/api/concierge/try', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: q, history: hist }) })
+      .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+      .then(function (x) {
+        if (!x.ok) { msg.textContent = (x.b && x.b.error) || 'Error'; if (/used up/.test(msg.textContent)) done(); return; }
+        addFeedback(line(x.b.reply || '', 'bot'), q, x.b.reply || '');
+        log.scrollTop = log.scrollHeight;
+        hist.push({ role: 'user', content: q }, { role: 'assistant', content: x.b.reply || '' });
+        localStorage.setItem(KEY, String(used() + 1));
+        var left = MAX - used();
+        if (left <= 0) done(); else msg.textContent = t('trialLeft') + ' ' + left;
+      })
+      .catch(function () { msg.textContent = 'Error'; })
+      .finally(function () { if (used() < MAX) btn.disabled = false; });
+  };
+  btn.addEventListener('click', send);
+  input.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); });
+})();
 </script>
 <script async src="https://www.ateliersurmesure.ca/t.js"></script>
 </body>

@@ -6,7 +6,7 @@
 // subscription gate from Section 4.3.
 const express = require('express');
 const supabase = require('../db');
-const { authenticate } = require('../lib/auth-mw');
+const { authenticate, optionalAuth } = require('../lib/auth-mw');
 const sec = require('../lib/security');
 const usage = require('../lib/usage');
 const access = require('../lib/access');
@@ -502,6 +502,68 @@ function logTurn(conversationId, userText, reply, matchedIds, units) {
   ins({ conversation_id: conversationId, role: 'user', content: userText, units_charged: units });
   ins({ conversation_id: conversationId, role: 'assistant', content: reply, matched_job_ids: matchedIds });
 }
+
+// 👍/👎 on an answer, from members and free-trial visitors alike.
+router.post('/feedback', sec.limits.write, optionalAuth, async (req, res) => {
+  const rating = Number(req.body.rating);
+  if (rating !== 1 && rating !== -1) return res.status(400).json({ error: 'rating must be 1 or -1', code: 'ERR_BAD_INPUT' });
+  const { error } = await supabase.from('concierge_feedback').insert({
+    user_id: req.user && Number.isSafeInteger(req.user.id) ? req.user.id : null,
+    rating,
+    question: sec.clean(req.body.question, 2000) || null,
+    answer: sec.clean(req.body.answer, 6000) || null,
+    lang: sec.clean(req.body.lang, 10) || null,
+  });
+  if (error) { console.error('concierge feedback', error.message); return res.status(500).json({ error: 'Could not save', code: 'ERR_SERVER' }); }
+  res.json({ ok: true });
+});
+
+// Anonymous free trial: a visitor can ask a few questions before creating an
+// account. Same retrieval and prompt as a signed-in turn, but nothing is
+// stored, jobs come back in the redacted teaser shape, and the reply ends
+// with an invitation to sign up. The per-IP daily cap is sec.limits.trial.
+const TRIAL_INSTRUCTIONS = [
+  '=== FREE TRIAL VISITOR ===',
+  'This visitor has no account yet and is trying a few free questions. Answer their question fully and concretely, exactly as for a member (jobs are shown in teaser form: title, city and country only).',
+  'You have no profile for them, so do not ask intake questions; if you need one detail to answer, ask for just that one.',
+  'End with one short line inviting them to create a free account to see full job details and links, save their search and keep chatting.',
+].join('\n');
+
+router.post('/try', sec.limits.trial, async (req, res) => {
+  if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'Assistant not configured', code: 'ERR_UPSTREAM_UNAVAILABLE' });
+  const message = sec.clean(req.body.message, MAX_CHARS);
+  if (!message) return res.status(400).json({ error: 'Message required', code: 'ERR_BAD_INPUT' });
+  const history = (Array.isArray(req.body.history) ? req.body.history : [])
+    .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+    .slice(-6)
+    .map(m => ({ role: m.role, content: String(m.content).slice(0, MAX_CHARS) }));
+  while (history.length && history[0].role !== 'user') history.shift();
+  try {
+    const plan = await buildSearchPlan({ history, message });
+    const searchText = [conversationText(history, message), ...plan.keywords].join(' ');
+    const planCountry = plan.countries.length === 1 ? plan.countries[0] : '';
+    const flightQuery = plan.flight && flightSearch.configured() ? plan.flight : null;
+    const [jobResult, studyOpportunities, medicalProviders, flights] = await Promise.all([
+      plan.topic === 'travel' || plan.topic === 'medical' ? { jobs: [], salaryStats: [] } : retrieveJobsWithStats({ query: message, limit: 5, countries: plan.countries, keywords: plan.keywords }),
+      retrieveStudyOpportunities({ query: searchText, preferredCountry: planCountry, limit: 5 }),
+      retrieveMedicalProviders({ query: searchText, preferredCountry: planCountry, limit: 8 }),
+      flightQuery ? flightSearch.searchCheapest({ origin: flightQuery.origin, destination: flightQuery.destination, dateRange: flightQuery.month }).catch(() => ({ estimates: [] })) : { estimates: [] },
+    ]);
+    const jobs = jobResult.jobs.map(j => j.sourceType === 'seed_demo' ? demoJob(j) : j).map(teaserJob);
+    const system = buildSystemPrompt({
+      jobs, salaryStats: jobResult.salaryStats, studyOpportunities, medicalProviders,
+      dialectHint: sec.clean(req.body.dialectHint, 40),
+      travel: { flightsConfigured: flightSearch.configured(), hotelsConfigured: hotelSearch.configured(), flightQuery, flights: flights.estimates },
+    }) + '\n\n' + TRIAL_INSTRUCTIONS;
+    const { status, body } = await ask(system, [...history, { role: 'user', content: message }]);
+    if (status !== 200) return res.status(502).json({ error: 'Assistant unavailable', code: 'ERR_UPSTREAM_UNAVAILABLE' });
+    const reply = (body.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+    res.json({ reply, jobs, trial: true });
+  } catch (e) {
+    console.error('concierge try', e);
+    res.status(500).json({ error: 'Assistant error', code: 'ERR_SERVER' });
+  }
+});
 
 router.post('/', sec.limits.concierge, authenticate, sec.requireActiveUser, async (req, res) => {
   try {

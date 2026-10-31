@@ -893,3 +893,17 @@ grant execute on function public.rate_hits_gc() to service_role;
 grant execute on function public.record_login_result(bigint, boolean, integer, integer) to service_role;
 grant execute on function public.record_referral_conversion(bigint, bigint, integer) to service_role;
 grant execute on function public.usage_charge(bigint, numeric) to service_role;
+
+-- 👍/👎 on concierge answers (POST /api/concierge/feedback): the question and
+-- answer text are copied in so a bad answer can be read and fixed later;
+-- user_id is null for free-trial visitors.
+create table if not exists public.concierge_feedback (
+  id bigserial primary key,
+  user_id bigint references public.users(id) on delete set null,
+  rating smallint not null check (rating in (-1, 1)),
+  question text,
+  answer text,
+  lang text,
+  created_at timestamptz not null default now()
+);
+alter table public.concierge_feedback enable row level security;
