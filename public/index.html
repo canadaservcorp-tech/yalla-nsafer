@@ -2203,8 +2203,10 @@
   var used = function () { return Number(localStorage.getItem(KEY) || 0); };
   var line = function (text, who) {
     var d = document.createElement('div');
-    d.style.cssText = 'margin:6px 0;padding:8px 10px;border-radius:10px;white-space:pre-wrap;' + (who === 'user' ? 'background:var(--accent-soft, #eef4ff);text-align:end' : 'background:var(--bg-soft, #f6f6f6)');
-    d.textContent = text; log.appendChild(d); log.scrollTop = log.scrollHeight;
+    d.dir = 'auto';
+    d.style.cssText = 'margin:6px 0;padding:8px 10px;border-radius:10px;overflow-wrap:anywhere;' + (who === 'user' ? 'white-space:pre-wrap;' : '') + (who === 'user' ? 'background:var(--accent-soft, #eef4ff);text-align:end' : 'background:var(--bg-soft, #f6f6f6)');
+    if (who !== 'user' && typeof renderMarkdown === 'function') d.innerHTML = renderMarkdown(text); else d.textContent = text;
+    log.appendChild(d); log.scrollTop = log.scrollHeight;
   };
   var done = function () {
     input.disabled = true; btn.disabled = true;
