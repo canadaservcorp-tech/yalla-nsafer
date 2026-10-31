@@ -2247,6 +2247,7 @@
       .then(function (x) {
         if (!x.ok) { msg.textContent = (x.b && x.b.error) || 'Error'; if (/used up/.test(msg.textContent)) done(); return; }
         addFeedback(line(x.b.reply || '', 'bot'), q, x.b.reply || '');
+        log.scrollTop = log.scrollHeight;
         hist.push({ role: 'user', content: q }, { role: 'assistant', content: x.b.reply || '' });
         localStorage.setItem(KEY, String(used() + 1));
         var left = MAX - used();
