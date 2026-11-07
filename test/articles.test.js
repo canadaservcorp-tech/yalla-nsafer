@@ -13,6 +13,7 @@ test('ARTICLES covers exactly the five SEO-pack articles, in the pack\'s publish
   assert.deepEqual(articles.ARTICLES.map(a => a.slug), [
     'verify-immigration-consultant', 'scholarships-arab-students',
     'work-abroad-without-degree', 'spot-fake-job-offer', 'medical-treatment-abroad',
+    'want-to-travel-abroad-egypt', 'want-to-travel-abroad-levant', 'want-to-travel-abroad', 'want-to-immigrate',
   ]);
 });
 
@@ -162,4 +163,30 @@ test('GET /blog respects ?lang=ar and lists RTL', async () => {
 test('/blog is in the sitemap', async () => {
   const map = await fetch(`${h.base}/sitemap.xml`).then(x => x.text());
   assert.match(map, /<loc>[^<]*\/blog<\/loc>/);
+});
+
+// ---------- dialect "I want to travel / emigrate" articles ----------
+
+test('travel-intent articles render in ar/fr/en with FAQ JSON-LD, a chat link carrying the question, and working links', async () => {
+  const intent = require('../lib/articlesIntent').ARTICLES;
+  for (const a of intent) {
+    for (const lang of ['ar', 'fr', 'en']) {
+      const url = `${h.base}/blog/${a.slug}${lang === 'en' ? '' : `?lang=${lang}`}`;
+      const r = await fetch(url);
+      assert.equal(r.status, 200, url);
+      const body = await r.text();
+      assert.ok(body.includes(a.h1[lang].replace(/'/g, '&#39;')) || body.includes(a.h1[lang].replace(/"/g, '&quot;')), `${a.slug} ${lang} h1`);
+      assert.match(body, /hreflang="ar"/);
+      const ld = JSON.parse(body.match(/"application\/ld\+json">(\[.*?\])<\/script>/s)[1]);
+      const faq = ld.find(x => x['@type'] === 'FAQPage');
+      assert.equal(faq.mainEntity.length, a.faq.length);
+      assert.ok(body.includes(`ask=${encodeURIComponent(a.ask[lang])}`), `${a.slug} ${lang} chat link`);
+      for (const [, href] of body.matchAll(/href="(\/[^"#?]*)/g)) {
+        if (href === '/' || /\.(css|js|png|jpg)$/.test(href)) continue;
+        assert.equal((await fetch(h.base + href)).status, 200, `${a.slug} → ${href}`);
+      }
+    }
+  }
+  const llms = await fetch(`${h.base}/llms.txt`).then(x => x.text());
+  for (const a of intent) assert.ok(llms.includes(`/blog/${a.slug}?lang=ar`), a.slug);
 });
