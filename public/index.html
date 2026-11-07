@@ -465,6 +465,10 @@
           <a href="/blog/work-abroad-without-degree" data-i18n="linkWorkAbroad">Work abroad without a degree</a> ·
           <a href="/blog/spot-fake-job-offer" data-i18n="linkSpotScam">Spot a fake job offer</a> ·
           <a href="/blog/medical-treatment-abroad" data-i18n="linkMedicalAbroad">Medical treatment abroad</a> ·
+          <a href="/blog/want-to-travel-abroad-egypt" data-i18n="linkWantEgypt">Leave Egypt to work abroad</a> ·
+          <a href="/blog/want-to-travel-abroad-levant" data-i18n="linkWantLevant">Leave the Levant to work or study</a> ·
+          <a href="/blog/want-to-travel-abroad" data-i18n="linkWantTravel">I want to travel: where to start</a> ·
+          <a href="/blog/want-to-immigrate" data-i18n="linkWantImmigrate">I want to immigrate: legal routes</a> ·
           <a href="/blog" data-i18n="linkAllGuides">All guides</a>
         </div>
         <div id="shareBar" class="menuSection">
@@ -2216,6 +2220,11 @@
   // Runs last: enter() touches messagesEl/dialectSelect, which aren't
   // initialized until the chat section above.
   if (token()) enter();
+  (function () {
+    var q = (new URLSearchParams(location.search).get('ask') || '').trim().slice(0, 500);
+    var box = document.getElementById('messageInput');
+    if (q && token() && box && !box.value) box.value = q;
+  })();
 
 // Free trial card on the sign-in screen (POST /api/concierge/try)
 (function () {
@@ -2238,6 +2247,14 @@
     msg.textContent = t('trialDone');
   };
   if (used() >= MAX) done();
+  // Guide pages link here with ?ask=<their question> so the chat opens with it typed.
+  var ask = (new URLSearchParams(location.search).get('ask') || '').trim().slice(0, 500);
+  if (ask && !input.disabled && !token()) {
+    input.value = ask;
+    var card = document.getElementById('trialCard');
+    if (card && card.scrollIntoView) card.scrollIntoView({ block: 'center' });
+    input.focus();
+  }
   var send = function () {
     var q = input.value.trim();
     if (!q || used() >= MAX) return;
