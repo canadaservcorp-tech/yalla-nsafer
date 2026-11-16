@@ -28,6 +28,7 @@ invented — copy the file and fill it in on the host's env-var UI.
 | `JWT_SECRET` | **yes** | 32+ chars; the app refuses to boot below that. Generate with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`. Rotating it invalidates every issued session. |
 | `SUPABASE_URL` | **yes** | The new project's URL. |
 | `SUPABASE_SERVICE_ROLE_KEY` | **yes** | Service-role key — this app manages its own `users` table/auth, it does not use Supabase Auth. Treat as a secret; it bypasses RLS. |
+| `SUPABASE_DB_SCHEMA` | no (default `public`) | Postgres schema with Yalla's tables. Prod uses `yalla` inside the shared TrouvePro Supabase project; the schema must be listed in the project's API "Exposed schemas". |
 | `RESEND_API_KEY` | recommended | Without it, verification/receipt emails print to the server log instead of sending (dev-safe fallback — do not leave this unset in production). |
 | `MAIL_FROM` | no | Defaults to a Resend sandbox address; set to a domain-verified sender before launch. |
 | `PAYWALL_ENFORCED` | **yes** | `true` in production once PayPal is live; `false` only for a pre-launch/demo deploy. |
