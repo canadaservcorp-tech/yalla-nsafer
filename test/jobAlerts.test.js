@@ -41,6 +41,24 @@ test('findNewRows treats a lookup error as "nothing new" rather than false-posit
   assert.deepEqual(fresh, []);
 });
 
+test('findNewRows looks ids up in batches of LOOKUP_BATCH (a full ingest run is ~5,000 ids, too long for one URL)', async () => {
+  const n = jobAlerts.LOOKUP_BATCH * 2 + 50;
+  const rows = Array.from({ length: n }, (_, i) => JOB({ external_id: 'j' + i }));
+  h.mock.__queue('jobs',
+    { data: [{ external_source: 'seed', external_id: 'j0' }], error: null },
+    { data: [], error: null },
+    { data: [{ external_source: 'seed', external_id: 'j' + (n - 1) }], error: null });
+  const fresh = await jobAlerts.findNewRows(rows);
+  assert.equal(fresh.length, n - 2);
+  assert.ok(!fresh.some(r => r.external_id === 'j0' || r.external_id === 'j' + (n - 1)), 'ids known in the first and last batch are both excluded');
+});
+
+test('findNewRows returns nothing if any batch fails, so a partial lookup never false-positives', async () => {
+  const rows = Array.from({ length: jobAlerts.LOOKUP_BATCH + 1 }, (_, i) => JOB({ external_id: 'j' + i }));
+  h.mock.__queue('jobs', { data: [], error: null }, { data: null, error: { message: 'Bad Request' } });
+  assert.deepEqual(await jobAlerts.findNewRows(rows), []);
+});
+
 test('findNewRows has nothing to do on an empty batch', async () => {
   assert.deepEqual(await jobAlerts.findNewRows([]), []);
 });
